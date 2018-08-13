@@ -4,8 +4,6 @@ import scalapb.compiler.Version.scalapbVersion
 
 scalaVersion in ThisBuild := "2.11.8"
 
-crossScalaVersions in ThisBuild := Seq("2.11.8", "2.10.5")
-
 organization in ThisBuild := "com.thesamet.scalapb"
 
 scalacOptions in ThisBuild ++= {
@@ -45,6 +43,9 @@ lazy val sparkSqlScalaPB = project.in(file("sparksql-scalapb"))
   .settings(
     name := "sparksql-scalapb",
 
+    scalaVersion in ThisBuild := "2.11.12",
+    crossScalaVersions in ThisBuild := Seq("2.11.12"),
+
     spName := "scalapb/sparksql-scalapb",
 
     sparkVersion := "2.2.0",
@@ -60,8 +61,8 @@ lazy val sparkSqlScalaPB = project.in(file("sparksql-scalapb"))
     inConfig(Test)(sbtprotoc.ProtocPlugin.protobufConfigSettings),
     PB.targets in Compile := Seq(),
     PB.targets in Test := Seq(
-      scalapb.gen() -> (sourceManaged in Test).value
-      // scalapb.UdtGenerator -> (sourceManaged in Test).value
+      scalapb.gen() -> (sourceManaged in Test).value,
+      scalapb.UdtGenerator -> (sourceManaged in Test).value
     )
   )
 
@@ -75,14 +76,21 @@ lazy val udtGenerator = project.in(file("sparksql-scalapb-gen"))
       "com.thesamet.scalapb" %% "compilerplugin" % scalapbVersion
     ),
     name := "sparksql-scalapb-gen",
+
+    scalaVersion in ThisBuild := "2.12.5",
+    crossScalaVersions in ThisBuild := Seq("2.12.5", "2.11.12"),
+
     PB.targets in Compile := Seq()
   )
 
-lazy val root =
-  project.in(file("."))
-    .settings(
-      publishArtifact := false,
-      publish := {},
-      publishLocal := {}
-    ).aggregate(
-      sparkSqlScalaPB, udtGenerator)
+lazy val root = project
+  .in(file("."))
+  .settings(
+    publishArtifact := false,
+    publish := {},
+    publishLocal := {}
+  )
+  .aggregate(
+    sparkSqlScalaPB,
+    udtGenerator
+  )
