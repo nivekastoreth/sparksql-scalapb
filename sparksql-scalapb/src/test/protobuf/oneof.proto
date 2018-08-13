@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+option java_package = "com.example.protos";
+
+import "base.proto";
+
+message AValue {
+  string strValue = 1;
+}
+
+message BValue {
+  int32 intValue = 1;
+}
+
+message ABValue {
+  oneof innerOf {
+    AValue a = 2;
+    BValue b = 3;
+  }
+}
+
+message OneOfTest {
+  string name = 1;
+  ABValue abValue = 2;
+}

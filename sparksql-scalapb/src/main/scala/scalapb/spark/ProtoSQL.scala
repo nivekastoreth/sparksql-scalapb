@@ -34,19 +34,22 @@ object ProtoSQL {
   }
 
   def messageToRow[T <: GeneratedMessage with Message[T]](msg: T): Row = {
+    Row(messageToData(msg): _*)
+  }
+
+  def messageToData[T <: GeneratedMessage with Message[T]](msg: T): Seq[Any] = {
     import collection.JavaConversions._
-    Row(
-      msg.companion.javaDescriptor.getFields.map {
-        fd =>
-          val obj = msg.getField(fd)
-          if (obj != null) {
-            if (fd.isRepeated) {
-              obj.asInstanceOf[Traversable[Any]].map(toRowData(fd, _))
-            } else {
-              toRowData(fd, obj)
-            }
-          } else null
-      }: _*)
+    msg.companion.javaDescriptor.getFields.map {
+      fd =>
+        val obj = msg.getField(fd)
+        if (obj != null) {
+          if (fd.isRepeated) {
+            obj.asInstanceOf[Traversable[Any]].map(toRowData(fd, _))
+          } else {
+            toRowData(fd, obj)
+          }
+        } else null
+    }
   }
 
   def dataTypeFor(fd: FieldDescriptor) = {

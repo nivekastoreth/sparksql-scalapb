@@ -41,11 +41,30 @@ class UdtGeneratorHandler(request: CodeGeneratorRequest, flatPackage: Boolean = 
     f.getEnumTypes.asScala ++ f.nestedTypes.flatMap(allEnums)
   }
 
-  def udtName(e: EnumDescriptor) = e.scalaTypeName.replace(".", "__")
+  def allOneOfs(f: FileDescriptor): Seq[OneofDescriptor] = {
+    f.getMessageTypes.asScala.flatMap(allOneOfs)
+  }
 
-  def generateEnum(fp: FunctionalPrinter, e: EnumDescriptor): FunctionalPrinter = {
-    fp.add(
-      s"class ${udtName(e)} extends _root_.org.apache.spark.scalapb_hack.GeneratedEnumUDT[${e.scalaTypeName}]")
+  def allOneOfs(f: Descriptor): Seq[OneofDescriptor] = {
+    f.getOneofs.asScala ++ f.nestedTypes.flatMap(allOneOfs)
+  }
+
+  def udtName(d: EnumDescriptor): String = d.scalaTypeName.replace(".", "__")
+
+  def udtName(d: OneofDescriptor): String = d.scalaTypeName.replace(".", "__")
+
+  def generateEnum(fp: FunctionalPrinter, d: EnumDescriptor): FunctionalPrinter = {
+    fp.add(s"class ${udtName(d)}")
+      .indent
+      .add(s"extends _root_.org.apache.spark.scalapb_hack.GeneratedEnumUDT[${d.scalaTypeName}]")
+      .outdent
+  }
+
+  def generateOneOf(fp: FunctionalPrinter, d: OneofDescriptor): FunctionalPrinter = {
+    fp.add(s"class ${udtName(d)}")
+      .indent
+      .add(s"extends _root_.org.apache.spark.scalapb_hack.GeneratedOneOfUDT[${d.scalaTypeName}]")
+      .outdent
   }
 
   def generateFile(fileDesc: FileDescriptor): CodeGeneratorResponse.File = {
@@ -56,15 +75,78 @@ class UdtGeneratorHandler(request: CodeGeneratorRequest, flatPackage: Boolean = 
       .add("")
       .add(s"object ${fileDesc.fileDescriptorObjectName}Udt {")
       .indent
+      .add("// Declare Enum UDTs")
       .print(allEnums(fileDesc))(generateEnum)
+      .newline
+      .add("// Declare OneOf UDTs")
+      .print(allOneOfs(fileDesc))(generateOneOf)
+      .newline
       .add("def register(): Unit = { } // actual work happens at the constructor.")
       .add("")
       .print(fileDesc.getDependencies.asScala)(
         (fp, dep) => fp.add(s"${dep.scalaPackageName}.${dep.fileDescriptorObjectName}Udt.register()")
       )
+      .newline
+      .add("// Register Enum UDTs")
       .print(allEnums(fileDesc))(
-        (fp, e) => fp.add(
-          s"""_root_.org.apache.spark.scalapb_hack.GeneratedEnumUDT.register(classOf[${e.scalaTypeName}].getName, classOf[${fileDesc.scalaPackageName}.${fileDesc.fileDescriptorObjectName}Udt.${udtName(e)}].getName)"""))
+        (fp, d) => fp
+          .add(s"""_root_.org.apache.spark.scalapb_hack.MessageUDTRegistry.register(""")
+          .indent
+          .add(s"""classOf[${d.scalaTypeName}].getName,""")
+          .add(s"""classOf[${fileDesc.scalaPackageName}.${fileDesc.fileDescriptorObjectName}Udt.${udtName(d)}].getName""")
+          .outdent
+          .add(")")
+          .add("")
+      )
+      .newline
+      .add("// Register OneOf UDTs")
+      .print(allOneOfs(fileDesc))(
+        (fp, d) => fp
+          .add(s"""_root_.org.apache.spark.scalapb_hack.MessageUDTRegistry.register(""")
+          .indent
+          .add(s"""org.apache.spark.sql.catalyst.ScalaReflection.getClassNameFromType(""")
+          .indent
+          .add(s"""scala.reflect.runtime.universe.typeOf[${d.scalaTypeName}]),""")
+          .outdent
+          .add(s"""classOf[${fileDesc.scalaPackageName}.${fileDesc.fileDescriptorObjectName}Udt.${udtName(d)}].getName""")
+          .outdent
+          .add(")")
+          .add("")
+          .add(s"""_root_.org.apache.spark.scalapb_hack.MessageUDTRegistry.register(""")
+          .indent
+          .add(s"""classOf[${d.scalaTypeName}].getName,""")
+          .add(s"""classOf[${fileDesc.scalaPackageName}.${fileDesc.fileDescriptorObjectName}Udt.${udtName(d)}].getName""")
+          .outdent
+          .add(")")
+          .add("")
+      )
+      .newline
+      .add("// ===> Test 4")
+      .newline
+      .print(allOneOfs(fileDesc))(
+        (printer, oneOf: OneofDescriptor) => {
+          val odp = new OneofDescriptorPimp(oneOf)
+          println(oneOf)
+          println(odp)
+
+          val a = 0
+
+          printer
+            .add(
+              s"""
+                 | OneOf           : ${oneOf.getName}
+                 |   fullName      : ${oneOf.getFullName}
+                 |   scalaTypeName : ${oneOf.scalaTypeName}
+                 |   scalaTypeName : ${oneOf.scalaTypeName}
+                 |   scalaName     : ${oneOf.scalaName}
+                 |   fields        :
+                 |     ${oneOf.getFields.asScala.map(f => s"${f.getName} => javaType:${f.getJavaType}").mkString("\n     ")}
+                 |
+               """.stripMargin.split("\n").map(s => s"// $s") : _*
+            )
+            .newline
+        }
+      )
       .outdent
       .add("}")
 

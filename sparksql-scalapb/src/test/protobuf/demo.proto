@@ -1,24 +1,24 @@
-syntax = "proto2";
+syntax = "proto3";
 
 option java_package = "com.example.protos";
 
 import "base.proto";
 
 enum Gender {
-  MALE = 1;
-  FEMALE = 2;
+  MALE = 0;
+  FEMALE = 1;
 }
 
 message Address {
-  optional string street = 1;
-  optional string city = 2;
+  string street = 1;
+  string city = 2;
 }
 
 message Person {
-  optional string name = 1;
-  optional int32 age = 2;
-  optional Gender gender = 3;
+  string name = 1;
+  int32 age = 2;
+  Gender gender = 3;
   repeated string tags = 4;
   repeated Address addresses = 5;
-  optional Base base = 6;
+  Base base = 6;
 }
